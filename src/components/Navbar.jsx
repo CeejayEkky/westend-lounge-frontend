@@ -152,6 +152,7 @@ const Navbar = () => {
             {/* ✅ FIXED: Single user section with NotificationBell */}
             {user ? (
               <div className="flex items-center gap-4">
+                {console.log('🔔 Rendering NotificationBell for user:', user)}
                 <NotificationBell userId={user.id} userEmail={user.email} />
                 <span className="text-westend-gold">Hi, {user.name}</span>
                 <button

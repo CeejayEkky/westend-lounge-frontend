@@ -1,32 +1,43 @@
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { FiBell, FiCheckCircle, FiClock, FiXCircle, FiAlertCircle } from 'react-icons/fi';
-import { supabase } from '../config/supabaseClient';
+import React, { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  FiBell,
+  FiCheckCircle,
+  FiClock,
+  FiXCircle,
+  FiAlertCircle,
+} from "react-icons/fi";
+import { supabase } from "../config/supabaseClient";
 
 const NotificationBell = ({ userId, userEmail }) => {
+  console.log("🔔 NotificationBell MOUNTED with:", { userId, userEmail });
+
   const [notifications, setNotifications] = useState([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
 
-  console.log('🔔 NotificationBell rendering for:', userEmail);
+  console.log("🔔 NotificationBell rendering for:", userEmail);
 
   // Load notifications from localStorage
   useEffect(() => {
     if (!userEmail) return;
-    
+
     const saved = localStorage.getItem(`notifications_${userEmail}`);
     if (saved) {
       const parsed = JSON.parse(saved);
       setNotifications(parsed);
-      setUnreadCount(parsed.filter(n => !n.read).length);
+      setUnreadCount(parsed.filter((n) => !n.read).length);
     }
   }, [userEmail]);
 
   // Save notifications to localStorage
   const saveNotifications = (newNotifications) => {
-    localStorage.setItem(`notifications_${userEmail}`, JSON.stringify(newNotifications));
+    localStorage.setItem(
+      `notifications_${userEmail}`,
+      JSON.stringify(newNotifications),
+    );
     setNotifications(newNotifications);
-    setUnreadCount(newNotifications.filter(n => !n.read).length);
+    setUnreadCount(newNotifications.filter((n) => !n.read).length);
   };
 
   // Add new notification
@@ -38,92 +49,94 @@ const NotificationBell = ({ userId, userEmail }) => {
       type,
       reservationId,
       read: false,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
     };
-    console.log('🔔 Adding notification:', newNotification);
+    console.log("🔔 Adding notification:", newNotification);
     saveNotifications([newNotification, ...notifications]);
   };
 
   // Subscribe to reservation updates
   useEffect(() => {
     if (!userEmail) {
-      console.log('⚠️ No userEmail, skipping subscription');
+      console.log("⚠️ No userEmail, skipping subscription");
       return;
     }
 
-    console.log('📡 Setting up real-time subscription for:', userEmail);
+    console.log("📡 Setting up real-time subscription for:", userEmail);
 
     const channel = supabase
       .channel(`reservations-${userEmail}`)
       .on(
-        'postgres_changes',
+        "postgres_changes",
         {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'reservations',
-          filter: `customer_email=eq.${userEmail}`
+          event: "UPDATE",
+          schema: "public",
+          table: "reservations",
+          filter: `customer_email=eq.${userEmail}`,
         },
         (payload) => {
-          console.log('🔔 Reservation update received:', payload);
+          console.log("🔔 Reservation update received:", payload);
           const reservation = payload.new;
           const oldStatus = payload.old.status;
           const newStatus = reservation.status;
 
           if (oldStatus !== newStatus) {
-            let title = '';
-            let message = '';
-            let type = 'info';
+            let title = "";
+            let message = "";
+            let type = "info";
 
             switch (newStatus) {
-              case 'confirmed':
-                title = '✅ Reservation Confirmed!';
+              case "confirmed":
+                title = "✅ Reservation Confirmed!";
                 message = `Your table for ${new Date(reservation.reservation_date).toLocaleDateString()} at ${new Date(reservation.reservation_date).toLocaleTimeString()} has been confirmed.`;
-                type = 'success';
+                type = "success";
                 break;
-              case 'completed':
-                title = '🎉 Reservation Completed';
-                message = 'Thank you for dining with us! We hope you enjoyed your experience.';
-                type = 'success';
+              case "completed":
+                title = "🎉 Reservation Completed";
+                message =
+                  "Thank you for dining with us! We hope you enjoyed your experience.";
+                type = "success";
                 break;
-              case 'cancelled':
-                title = '❌ Reservation Cancelled';
-                message = 'Your reservation has been cancelled. If this was a mistake, please contact us.';
-                type = 'error';
+              case "cancelled":
+                title = "❌ Reservation Cancelled";
+                message =
+                  "Your reservation has been cancelled. If this was a mistake, please contact us.";
+                type = "error";
                 break;
               default:
-                title = '📅 Reservation Updated';
+                title = "📅 Reservation Updated";
                 message = `Your reservation status is now: ${newStatus}`;
-                type = 'info';
+                type = "info";
             }
 
             addNotification(title, message, type, reservation.id);
-            
+
             // Also try to show toast if available
-            if (typeof toast !== 'undefined') {
+            if (typeof toast !== "undefined") {
               toast.success(title);
             }
           }
-        }
+        },
       )
       .subscribe((status) => {
-        console.log('📡 Subscription status:', status);
+        console.log("📡 Subscription status:", status);
       });
 
     return () => {
-      console.log('🔌 Unsubscribing from reservations');
+      console.log("🔌 Unsubscribing from reservations");
       channel.unsubscribe();
     };
   }, [userEmail]);
 
   const markAsRead = (id) => {
-    const updated = notifications.map(n => 
-      n.id === id ? { ...n, read: true } : n
+    const updated = notifications.map((n) =>
+      n.id === id ? { ...n, read: true } : n,
     );
     saveNotifications(updated);
   };
 
   const markAllAsRead = () => {
-    const updated = notifications.map(n => ({ ...n, read: true }));
+    const updated = notifications.map((n) => ({ ...n, read: true }));
     saveNotifications(updated);
   };
 
@@ -133,11 +146,15 @@ const NotificationBell = ({ userId, userEmail }) => {
   };
 
   const getIcon = (type) => {
-    switch(type) {
-      case 'success': return <FiCheckCircle className="text-green-500" />;
-      case 'error': return <FiXCircle className="text-red-500" />;
-      case 'warning': return <FiAlertCircle className="text-yellow-500" />;
-      default: return <FiClock className="text-blue-500" />;
+    switch (type) {
+      case "success":
+        return <FiCheckCircle className="text-green-500" />;
+      case "error":
+        return <FiXCircle className="text-red-500" />;
+      case "warning":
+        return <FiAlertCircle className="text-yellow-500" />;
+      default:
+        return <FiClock className="text-blue-500" />;
     }
   };
 
@@ -168,10 +185,16 @@ const NotificationBell = ({ userId, userEmail }) => {
               <div className="flex gap-2">
                 {notifications.length > 0 && (
                   <>
-                    <button onClick={markAllAsRead} className="text-xs text-westend-gold hover:underline">
+                    <button
+                      onClick={markAllAsRead}
+                      className="text-xs text-westend-gold hover:underline"
+                    >
                       Mark all read
                     </button>
-                    <button onClick={clearAll} className="text-xs text-red-400 hover:underline">
+                    <button
+                      onClick={clearAll}
+                      className="text-xs text-red-400 hover:underline"
+                    >
                       Clear all
                     </button>
                   </>
@@ -189,13 +212,15 @@ const NotificationBell = ({ userId, userEmail }) => {
                   <div
                     key={notif.id}
                     onClick={() => markAsRead(notif.id)}
-                    className={`p-3 border-b border-white/10 cursor-pointer hover:bg-white/5 transition ${!notif.read ? 'bg-white/5' : ''}`}
+                    className={`p-3 border-b border-white/10 cursor-pointer hover:bg-white/5 transition ${!notif.read ? "bg-white/5" : ""}`}
                   >
                     <div className="flex items-start gap-3">
                       <div className="mt-1">{getIcon(notif.type)}</div>
                       <div className="flex-1">
                         <p className="font-semibold text-sm">{notif.title}</p>
-                        <p className="text-xs text-gray-400 mt-1">{notif.message}</p>
+                        <p className="text-xs text-gray-400 mt-1">
+                          {notif.message}
+                        </p>
                         <p className="text-xs text-gray-500 mt-1">
                           {new Date(notif.createdAt).toLocaleString()}
                         </p>
