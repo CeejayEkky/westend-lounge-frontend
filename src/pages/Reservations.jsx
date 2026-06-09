@@ -1,7 +1,6 @@
-// client/src/pages/Reservation.jsx
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { useNavigate } from "react-router-dom"; // ✅ ADD THIS
+import { useNavigate } from "react-router-dom";
 import { format, addMinutes, isBefore, setHours, setMinutes } from "date-fns";
 import {
   FiMapPin,
@@ -17,7 +16,7 @@ import api from "../utils/api";
 import toast from "react-hot-toast";
 
 const Reservation = () => {
-  const navigate = useNavigate(); // ✅ ADD THIS
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -47,21 +46,21 @@ const Reservation = () => {
     }
   };
 
-  // ✅ FIXED: Convert time from 12hr to 24hr format
+  // Convert time from 12hr to 24hr format
   const convertTo24Hour = (time12h) => {
     if (!time12h) return "00:00";
     const [time, modifier] = time12h.split(" ");
     let [hours, minutes] = time.split(":");
-
+    
     let hourNum = parseInt(hours, 10);
-
+    
     if (modifier === "PM" && hourNum !== 12) {
       hourNum += 12;
     }
     if (modifier === "AM" && hourNum === 12) {
       hourNum = 0;
     }
-
+    
     return `${hourNum.toString().padStart(2, "0")}:${minutes}`;
   };
 
@@ -108,11 +107,14 @@ const Reservation = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
     if (!formData.time) {
       toast.error("Please select a reservation time");
       return;
     }
+    
     setLoading(true);
+    
     try {
       const time24h = convertTo24Hour(formData.time);
       const payload = {
@@ -127,32 +129,29 @@ const Reservation = () => {
       console.log("📅 Sending reservation:", payload);
 
       const response = await api.post("/reservations", payload);
-
+      
       if (response.data.success) {
         toast.success("🎉 Table reserved!");
-        toast.success("📧 Confirmation email sent to your inbox", {
-          duration: 5000,
-          icon: "📧",
-        });
+        toast.success("📧 Confirmation email will arrive shortly", { duration: 3000 });
+        
+        // Navigate to confirmation page
         navigate("/reservation-confirmation", {
           state: { reservation: response.data.data },
         });
-        // Reset form but keep name/email/phone
-        setFormData((prev) => ({
-          ...prev,
-          date: format(new Date(), "yyyy-MM-dd"),
-          time: "",
-          guests: 2,
-          specialRequests: "",
-        }));
       } else {
         toast.error(response.data.message || "Reservation failed");
+        setLoading(false);
       }
     } catch (error) {
       console.error("Reservation error:", error);
-      const errorMsg = error.response?.data?.message || "Something went wrong";
-      toast.error(errorMsg);
-    } finally {
+      
+      if (error.response?.data?.message) {
+        toast.error(error.response.data.message);
+      } else if (error.code === "ECONNABORTED") {
+        toast.error("Request timed out. Please try again.");
+      } else {
+        toast.error("Something went wrong. Please try again.");
+      }
       setLoading(false);
     }
   };
@@ -170,8 +169,7 @@ const Reservation = () => {
             Make a <span className="text-gradient">Reservation</span>
           </h1>
           <p className="text-gray-400 text-lg max-w-2xl mx-auto">
-            Book your table in advance and enjoy an unforgettable dining
-            experience.
+            Book your table in advance and enjoy an unforgettable dining experience.
           </p>
         </motion.div>
 
@@ -190,9 +188,7 @@ const Reservation = () => {
                   type="text"
                   placeholder="Full Name *"
                   value={formData.name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
-                  }
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   className="w-full pl-10 pr-4 py-3 bg-white/10 rounded-lg focus:border-westend-gold focus:outline-none"
                   required
                 />
@@ -204,9 +200,7 @@ const Reservation = () => {
                   type="email"
                   placeholder="Email Address *"
                   value={formData.email}
-                  onChange={(e) =>
-                    setFormData({ ...formData, email: e.target.value })
-                  }
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   className="w-full pl-10 pr-4 py-3 bg-white/10 rounded-lg focus:border-westend-gold focus:outline-none"
                   required
                 />
@@ -218,9 +212,7 @@ const Reservation = () => {
                   type="tel"
                   placeholder="Phone Number *"
                   value={formData.phone}
-                  onChange={(e) =>
-                    setFormData({ ...formData, phone: e.target.value })
-                  }
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   className="w-full pl-10 pr-4 py-3 bg-white/10 rounded-lg focus:border-westend-gold focus:outline-none"
                   required
                 />
@@ -231,9 +223,7 @@ const Reservation = () => {
                 <input
                   type="date"
                   value={formData.date}
-                  onChange={(e) =>
-                    setFormData({ ...formData, date: e.target.value })
-                  }
+                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                   className="w-full pl-10 pr-4 py-3 bg-white/10 rounded-lg focus:border-westend-gold focus:outline-none"
                   min={format(new Date(), "yyyy-MM-dd")}
                   required
@@ -244,10 +234,8 @@ const Reservation = () => {
                 <FiClock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 <select
                   value={formData.time}
-                  onChange={(e) =>
-                    setFormData({ ...formData, time: e.target.value })
-                  }
-                  className="w-full pl-10 pr-4 py-3 bg-gray-600 rounded-lg focus:border-westend-gold focus:outline-none"
+                  onChange={(e) => setFormData({ ...formData, time: e.target.value })}
+                  className="w-full pl-10 pr-4 py-3 bg-white/10 rounded-lg focus:border-westend-gold focus:outline-none"
                   required
                 >
                   <option value="">Select Time</option>
@@ -261,10 +249,8 @@ const Reservation = () => {
                 <FiUsers className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 <select
                   value={formData.guests}
-                  onChange={(e) =>
-                    setFormData({ ...formData, guests: e.target.value })
-                  }
-                  className="w-full pl-10 pr-4 py-3 bg-gray-600 rounded-lg focus:border-westend-gold focus:outline-none"
+                  onChange={(e) => setFormData({ ...formData, guests: e.target.value })}
+                  className="w-full pl-10 pr-4 py-3 bg-white/10 rounded-lg focus:border-westend-gold focus:outline-none"
                 >
                   {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
                     <option key={num}>
@@ -279,12 +265,7 @@ const Reservation = () => {
                 <textarea
                   placeholder="Special Requests (allergies, celebrations, seating preferences...)"
                   value={formData.specialRequests}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      specialRequests: e.target.value,
-                    })
-                  }
+                  onChange={(e) => setFormData({ ...formData, specialRequests: e.target.value })}
                   className="w-full pl-10 pr-4 py-3 bg-white/10 rounded-lg focus:border-westend-gold focus:outline-none"
                   rows="3"
                 />
@@ -295,9 +276,16 @@ const Reservation = () => {
                 whileTap={{ scale: 0.98 }}
                 type="submit"
                 disabled={loading}
-                className="w-full bg-westend-gold text-westend-dark py-3 rounded-full font-semibold text-lg disabled:opacity-50"
+                className="w-full bg-westend-gold text-westend-dark py-3 rounded-full font-semibold text-lg disabled:opacity-70 transition-all flex items-center justify-center gap-2"
               >
-                {loading ? "Reserving..." : "Reserve Table →"}
+                {loading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-westend-dark"></div>
+                    <span>Reserving...</span>
+                  </>
+                ) : (
+                  "Reserve Table →"
+                )}
               </motion.button>
             </form>
           </motion.div>
@@ -317,9 +305,7 @@ const Reservation = () => {
                   </div>
                   <div>
                     <p className="font-semibold">Address</p>
-                    <p className="text-gray-400">
-                      139 Akowonjo Road, Alimosho, Lagos
-                    </p>
+                    <p className="text-gray-400">139 Akowonjo Road, Alimosho, Lagos</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
@@ -337,7 +323,7 @@ const Reservation = () => {
                   </div>
                   <div>
                     <p className="font-semibold">Email</p>
-                    <p className="text-gray-400">adminwestendlb04@gmail.com</p>
+                    <p className="text-gray-400">reservations@westendlounge.com</p>
                   </div>
                 </div>
               </div>
@@ -355,9 +341,7 @@ const Reservation = () => {
                   <span className="text-westend-gold">12:00 PM - 3:00 AM</span>
                 </div>
                 <div className="mt-4 pt-4 border-t border-white/10">
-                  <p className="text-sm text-gray-400">
-                    ⏰ Last seating 30 minutes before closing
-                  </p>
+                  <p className="text-sm text-gray-400">⏰ Last seating 30 minutes before closing</p>
                 </div>
               </div>
             </div>
@@ -365,9 +349,7 @@ const Reservation = () => {
             <div className="glass-effect rounded-2xl p-8">
               <h2 className="text-2xl font-bold mb-4">Reservation Policies</h2>
               <ul className="space-y-2 text-sm text-gray-300">
-                <li>
-                  • Reservations are held for 15 minutes past the scheduled time
-                </li>
+                <li>• Reservations are held for 15 minutes past the scheduled time</li>
                 <li>• For groups of 6+, please call us directly</li>
                 <li>• Live band starts at 8 PM on Fridays & Saturdays</li>
                 <li>• Free parking available for customers</li>
@@ -377,17 +359,10 @@ const Reservation = () => {
             <div className="glass-effect rounded-2xl p-8">
               <h2 className="text-2xl font-bold mb-4">Find Us</h2>
               <div className="bg-gray-800 rounded-xl h-48 flex items-center justify-center">
-                <p className="text-gray-400">
-                  📍 139 Akowonjo Road, Alimosho, Lagos
-                </p>
+                <p className="text-gray-400">📍 139 Akowonjo Road, Alimosho, Lagos</p>
               </div>
               <button
-                onClick={() =>
-                  window.open(
-                    "https://maps.app.goo.gl/dqiWD3r3C7jDqk3g8",
-                    "_blank",
-                  )
-                }
+                onClick={() => window.open("https://maps.app.goo.gl/dqiWD3r3C7jDqk3g8", "_blank")}
                 className="mt-4 text-westend-gold hover:underline text-sm w-full text-center"
               >
                 Get Directions →
@@ -403,8 +378,7 @@ const Reservation = () => {
           className="mt-12 p-6 glass-effect rounded-2xl text-center"
         >
           <p className="text-gray-300">
-            ⚡{" "}
-            <span className="text-westend-gold font-semibold">Happy Hour:</span>{" "}
+            ⚡ <span className="text-westend-gold font-semibold">Happy Hour:</span>{" "}
             Buy 1 Get 1 Free on all drinks, Monday-Friday, 5 PM – 8 PM
           </p>
         </motion.div>
