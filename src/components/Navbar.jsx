@@ -5,6 +5,7 @@ import { FiMenu, FiX, FiShoppingCart, FiUser } from 'react-icons/fi'
 import { useSelector } from 'react-redux'
 import toast from 'react-hot-toast'
 import Logo from '../assets/logo2.jpg'
+import NotificationBell from './NotificationBell'
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false)
@@ -14,13 +15,11 @@ const Navbar = () => {
   const navigate = useNavigate()
   const cartItems = useSelector(state => state.cart.items)
 
-  // ✅ Function to load user from localStorage
   const loadUser = () => {
     const storedUser = localStorage.getItem('user')
     if (storedUser) {
       try {
         const parsedUser = JSON.parse(storedUser)
-        console.log('📦 Loading user from storage:', parsedUser)
         setUser(parsedUser)
       } catch {
         localStorage.removeItem('user')
@@ -31,37 +30,24 @@ const Navbar = () => {
     }
   }
 
-  // ✅ Load user on mount
   useEffect(() => {
     loadUser()
   }, [])
 
-  // ✅ Listen for storage changes (when login happens in another tab/window)
   useEffect(() => {
     const handleStorageChange = (e) => {
       if (e.key === 'user') {
-        console.log('🔄 Storage changed, reloading user...')
         loadUser()
       }
     }
-    
     window.addEventListener('storage', handleStorageChange)
     return () => window.removeEventListener('storage', handleStorageChange)
   }, [])
 
-  // ✅ Custom event listener for login (for same tab)
   useEffect(() => {
-    const handleLoginEvent = () => {
-      console.log('🎉 Login event received, reloading user...')
-      loadUser()
-    }
-    
+    const handleLoginEvent = () => loadUser()
     window.addEventListener('user-login', handleLoginEvent)
-    window.addEventListener('user-logout', () => {
-      console.log('🚪 Logout event received')
-      setUser(null)
-    })
-    
+    window.addEventListener('user-logout', () => setUser(null))
     return () => {
       window.removeEventListener('user-login', handleLoginEvent)
       window.removeEventListener('user-logout', () => {})
@@ -163,8 +149,10 @@ const Navbar = () => {
               </motion.div>
             </Link>
 
+            {/* ✅ FIXED: Single user section with NotificationBell */}
             {user ? (
               <div className="flex items-center gap-4">
+                <NotificationBell userId={user.id} userEmail={user.email} />
                 <span className="text-westend-gold">Hi, {user.name}</span>
                 <button
                   onClick={handleLogout}
@@ -206,7 +194,6 @@ const Navbar = () => {
               onClick={() => setIsOpen(false)}
               className="fixed inset-0 bg-black/70 backdrop-blur-sm z-40 md:hidden"
             />
-
             <motion.div
               initial={{ x: '100%' }}
               animate={{ x: 0 }}
@@ -253,7 +240,10 @@ const Navbar = () => {
                     <>
                       <div className="text-white py-2">Welcome, {user.name}</div>
                       <button
-                        onClick={handleLogout}
+                        onClick={() => {
+                          handleLogout()
+                          setIsOpen(false)
+                        }}
                         className="bg-red-500 text-white py-3 rounded-full font-semibold mt-4 transition-colors hover:bg-red-600"
                       >
                         Logout

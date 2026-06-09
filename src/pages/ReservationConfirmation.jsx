@@ -16,6 +16,32 @@ const ReservationConfirmation = () => {
   const navigate = useNavigate();
   const [reservation, setReservation] = useState(null);
 
+  // Add status tracking to your confirmation page
+const [status, setStatus] = useState(reservation?.status || 'pending');
+
+// Subscribe to status updates
+useEffect(() => {
+  if (!reservation?.id) return;
+  
+  const channel = supabase
+    .channel(`reservation-${reservation.id}`)
+    .on('postgres_changes',
+      {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'reservations',
+        filter: `id=eq.${reservation.id}`
+      },
+      (payload) => {
+        setStatus(payload.new.status);
+        toast.success(`Reservation status: ${payload.new.status}`);
+      }
+    )
+    .subscribe();
+    
+  return () => channel.unsubscribe();
+}, [reservation?.id]);
+
   useEffect(() => {
     const reservationData = location.state?.reservation;
     if (!reservationData) {
