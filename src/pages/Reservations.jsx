@@ -1,6 +1,7 @@
 // client/src/pages/Reservation.jsx
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom"; // ✅ ADD THIS
 import { format, addMinutes, isBefore, setHours, setMinutes } from "date-fns";
 import {
   FiMapPin,
@@ -16,6 +17,7 @@ import api from "../utils/api";
 import toast from "react-hot-toast";
 
 const Reservation = () => {
+  const navigate = useNavigate(); // ✅ ADD THIS
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -31,11 +33,11 @@ const Reservation = () => {
   // Get day of week (0=Sunday, 1=Monday...)
   const getDayType = (date) => {
     const day = new Date(date).getDay();
-    if (day >= 1 && day <= 5) return "weekday"; // Mon-Fri: 12pm - 12am
-    return "weekend"; // Sat-Sun: 12pm - 3am
+    if (day >= 1 && day <= 5) return "weekday";
+    return "weekend";
   };
 
-  // Get opening and closing hours for a given date
+  // Get opening and closing hours
   const getOpeningHours = (date) => {
     const dayType = getDayType(date);
     if (dayType === "weekday") {
@@ -45,7 +47,25 @@ const Reservation = () => {
     }
   };
 
-  // Generate available times based on selected date and current time
+  // ✅ FIXED: Convert time from 12hr to 24hr format
+  const convertTo24Hour = (time12h) => {
+    if (!time12h) return "00:00";
+    const [time, modifier] = time12h.split(" ");
+    let [hours, minutes] = time.split(":");
+    
+    let hourNum = parseInt(hours, 10);
+    
+    if (modifier === "PM" && hourNum !== 12) {
+      hourNum += 12;
+    }
+    if (modifier === "AM" && hourNum === 12) {
+      hourNum = 0;
+    }
+    
+    return `${hourNum.toString().padStart(2, "0")}:${minutes}`;
+  };
+
+  // Generate available times
   const generateTimeSlots = (selectedDate) => {
     const now = new Date();
     const selected = new Date(selectedDate);
@@ -94,15 +114,6 @@ const Reservation = () => {
     }
     setLoading(true);
     try {
-      // Convert time from "07:30 PM" to 24-hour format for database
-      const convertTo24Hour = (time12h) => {
-        const [time, modifier] = time12h.split(" ");
-        let [hours, minutes] = time.split(":");
-        if (hours === "12") hours = "00";
-        if (modifier === "PM") hours = parseInt(hours, 10) + 12;
-        return `${hours.padStart(2, "0")}:${minutes}`;
-      };
-
       const time24h = convertTo24Hour(formData.time);
       const payload = {
         customer_name: formData.name,
@@ -113,27 +124,30 @@ const Reservation = () => {
         special_requests: formData.specialRequests,
       };
 
+      console.log("📅 Sending reservation:", payload);
+
       const response = await api.post("/reservations", payload);
+      
       if (response.data.success) {
         toast.success("🎉 Table reserved! Check your email for confirmation.");
         navigate("/reservation-confirmation", {
           state: { reservation: response.data.data },
         });
-        setFormData({
-          name: formData.name,
-          email: formData.email,
-          phone: formData.phone,
+        // Reset form but keep name/email/phone
+        setFormData((prev) => ({
+          ...prev,
           date: format(new Date(), "yyyy-MM-dd"),
           time: "",
           guests: 2,
           specialRequests: "",
-        });
+        }));
       } else {
         toast.error(response.data.message || "Reservation failed");
       }
     } catch (error) {
-      console.error(error);
-      toast.error(error.response?.data?.message || "Something went wrong");
+      console.error("Reservation error:", error);
+      const errorMsg = error.response?.data?.message || "Something went wrong";
+      toast.error(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -229,7 +243,7 @@ const Reservation = () => {
                   onChange={(e) =>
                     setFormData({ ...formData, time: e.target.value })
                   }
-                  className="w-full pl-10 pr-4 py-3 bg-gray-600 rounded-lg focus:border-westend-gold focus:outline-none"
+                  className="w-full pl-10 pr-4 py-3 bg-white/10 rounded-lg focus:border-westend-gold focus:outline-none"
                   required
                 >
                   <option value="">Select Time</option>
@@ -246,7 +260,7 @@ const Reservation = () => {
                   onChange={(e) =>
                     setFormData({ ...formData, guests: e.target.value })
                   }
-                  className="w-full pl-10 pr-4 py-3 bg-gray-600 rounded-lg focus:border-westend-gold focus:outline-none"
+                  className="w-full pl-10 pr-4 py-3 bg-white/10 rounded-lg focus:border-westend-gold focus:outline-none"
                 >
                   {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
                     <option key={num}>
@@ -290,7 +304,6 @@ const Reservation = () => {
             animate={{ opacity: 1, x: 0 }}
             className="space-y-6"
           >
-            {/* Contact Info Card */}
             <div className="glass-effect rounded-2xl p-8">
               <h2 className="text-2xl font-bold mb-6">Contact Information</h2>
               <div className="space-y-4">
@@ -300,9 +313,7 @@ const Reservation = () => {
                   </div>
                   <div>
                     <p className="font-semibold">Address</p>
-                    <p className="text-gray-400">
-                      139 Akowonjo Road, Alimosho, Lagos
-                    </p>
+                    <p className="text-gray-400">139 Akowonjo Road, Alimosho, Lagos</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
@@ -320,15 +331,12 @@ const Reservation = () => {
                   </div>
                   <div>
                     <p className="font-semibold">Email</p>
-                    <p className="text-gray-400">
-                      reservations@westendlounge.com
-                    </p>
+                    <p className="text-gray-400">adminwestendlb04@gmail.com</p>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Opening Hours Card */}
             <div className="glass-effect rounded-2xl p-8">
               <h2 className="text-2xl font-bold mb-6">Opening Hours</h2>
               <div className="space-y-3">
@@ -341,40 +349,31 @@ const Reservation = () => {
                   <span className="text-westend-gold">12:00 PM - 3:00 AM</span>
                 </div>
                 <div className="mt-4 pt-4 border-t border-white/10">
-                  <p className="text-sm text-gray-400">
-                    ⏰ Last seating 30 minutes before closing
-                  </p>
+                  <p className="text-sm text-gray-400">⏰ Last seating 30 minutes before closing</p>
                 </div>
               </div>
             </div>
 
-            {/* Policies Card */}
             <div className="glass-effect rounded-2xl p-8">
               <h2 className="text-2xl font-bold mb-4">Reservation Policies</h2>
               <ul className="space-y-2 text-sm text-gray-300">
-                <li>
-                  • Reservations are held for 15 minutes past the scheduled time
-                </li>
+                <li>• Reservations are held for 15 minutes past the scheduled time</li>
                 <li>• For groups of 6+, please call us directly</li>
                 <li>• Live band starts at 8 PM on Fridays & Saturdays</li>
-                <li>• Minimum spend may apply during special events</li>
                 <li>• Free parking available for customers</li>
               </ul>
             </div>
 
-            {/* Map Card */}
             <div className="glass-effect rounded-2xl p-8">
               <h2 className="text-2xl font-bold mb-4">Find Us</h2>
               <div className="bg-gray-800 rounded-xl h-48 flex items-center justify-center">
-                <p className="text-gray-400">
-                  📍 139 Akowonjo Road, Alimosho, Lagos
-                </p>
+                <p className="text-gray-400">📍 139 Akowonjo Road, Alimosho, Lagos</p>
               </div>
               <button
                 onClick={() =>
                   window.open(
                     "https://maps.app.goo.gl/dqiWD3r3C7jDqk3g8",
-                    "_blank",
+                    "_blank"
                   )
                 }
                 className="mt-4 text-westend-gold hover:underline text-sm w-full text-center"
@@ -392,8 +391,7 @@ const Reservation = () => {
           className="mt-12 p-6 glass-effect rounded-2xl text-center"
         >
           <p className="text-gray-300">
-            ⚡{" "}
-            <span className="text-westend-gold font-semibold">Happy Hour:</span>{" "}
+            ⚡ <span className="text-westend-gold font-semibold">Happy Hour:</span>{" "}
             Buy 1 Get 1 Free on all drinks, Monday-Friday, 5 PM – 8 PM
           </p>
         </motion.div>
