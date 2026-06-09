@@ -10,6 +10,7 @@ import {
   FiPhone,
 } from "react-icons/fi";
 import toast from "react-hot-toast";
+import { supabase } from '../config/supabaseClient';
 
 const ReservationConfirmation = () => {
   const location = useLocation();
