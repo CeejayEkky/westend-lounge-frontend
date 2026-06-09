@@ -52,16 +52,16 @@ const Reservation = () => {
     if (!time12h) return "00:00";
     const [time, modifier] = time12h.split(" ");
     let [hours, minutes] = time.split(":");
-    
+
     let hourNum = parseInt(hours, 10);
-    
+
     if (modifier === "PM" && hourNum !== 12) {
       hourNum += 12;
     }
     if (modifier === "AM" && hourNum === 12) {
       hourNum = 0;
     }
-    
+
     return `${hourNum.toString().padStart(2, "0")}:${minutes}`;
   };
 
@@ -127,9 +127,13 @@ const Reservation = () => {
       console.log("📅 Sending reservation:", payload);
 
       const response = await api.post("/reservations", payload);
-      
+
       if (response.data.success) {
-        toast.success("🎉 Table reserved! Check your email for confirmation.");
+        toast.success("🎉 Table reserved!");
+        toast.success("📧 Confirmation email sent to your inbox", {
+          duration: 5000,
+          icon: "📧",
+        });
         navigate("/reservation-confirmation", {
           state: { reservation: response.data.data },
         });
@@ -243,7 +247,7 @@ const Reservation = () => {
                   onChange={(e) =>
                     setFormData({ ...formData, time: e.target.value })
                   }
-                  className="w-full pl-10 pr-4 py-3 bg-white/10 rounded-lg focus:border-westend-gold focus:outline-none"
+                  className="w-full pl-10 pr-4 py-3 bg-gray-600 rounded-lg focus:border-westend-gold focus:outline-none"
                   required
                 >
                   <option value="">Select Time</option>
@@ -260,7 +264,7 @@ const Reservation = () => {
                   onChange={(e) =>
                     setFormData({ ...formData, guests: e.target.value })
                   }
-                  className="w-full pl-10 pr-4 py-3 bg-white/10 rounded-lg focus:border-westend-gold focus:outline-none"
+                  className="w-full pl-10 pr-4 py-3 bg-gray-600 rounded-lg focus:border-westend-gold focus:outline-none"
                 >
                   {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
                     <option key={num}>
@@ -313,7 +317,9 @@ const Reservation = () => {
                   </div>
                   <div>
                     <p className="font-semibold">Address</p>
-                    <p className="text-gray-400">139 Akowonjo Road, Alimosho, Lagos</p>
+                    <p className="text-gray-400">
+                      139 Akowonjo Road, Alimosho, Lagos
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
@@ -349,7 +355,9 @@ const Reservation = () => {
                   <span className="text-westend-gold">12:00 PM - 3:00 AM</span>
                 </div>
                 <div className="mt-4 pt-4 border-t border-white/10">
-                  <p className="text-sm text-gray-400">⏰ Last seating 30 minutes before closing</p>
+                  <p className="text-sm text-gray-400">
+                    ⏰ Last seating 30 minutes before closing
+                  </p>
                 </div>
               </div>
             </div>
@@ -357,7 +365,9 @@ const Reservation = () => {
             <div className="glass-effect rounded-2xl p-8">
               <h2 className="text-2xl font-bold mb-4">Reservation Policies</h2>
               <ul className="space-y-2 text-sm text-gray-300">
-                <li>• Reservations are held for 15 minutes past the scheduled time</li>
+                <li>
+                  • Reservations are held for 15 minutes past the scheduled time
+                </li>
                 <li>• For groups of 6+, please call us directly</li>
                 <li>• Live band starts at 8 PM on Fridays & Saturdays</li>
                 <li>• Free parking available for customers</li>
@@ -367,13 +377,15 @@ const Reservation = () => {
             <div className="glass-effect rounded-2xl p-8">
               <h2 className="text-2xl font-bold mb-4">Find Us</h2>
               <div className="bg-gray-800 rounded-xl h-48 flex items-center justify-center">
-                <p className="text-gray-400">📍 139 Akowonjo Road, Alimosho, Lagos</p>
+                <p className="text-gray-400">
+                  📍 139 Akowonjo Road, Alimosho, Lagos
+                </p>
               </div>
               <button
                 onClick={() =>
                   window.open(
                     "https://maps.app.goo.gl/dqiWD3r3C7jDqk3g8",
-                    "_blank"
+                    "_blank",
                   )
                 }
                 className="mt-4 text-westend-gold hover:underline text-sm w-full text-center"
@@ -391,7 +403,8 @@ const Reservation = () => {
           className="mt-12 p-6 glass-effect rounded-2xl text-center"
         >
           <p className="text-gray-300">
-            ⚡ <span className="text-westend-gold font-semibold">Happy Hour:</span>{" "}
+            ⚡{" "}
+            <span className="text-westend-gold font-semibold">Happy Hour:</span>{" "}
             Buy 1 Get 1 Free on all drinks, Monday-Friday, 5 PM – 8 PM
           </p>
         </motion.div>
