@@ -8,8 +8,12 @@ const NotificationBell = ({ userId, userEmail }) => {
   const [showDropdown, setShowDropdown] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
 
+  console.log('🔔 NotificationBell rendering for:', userEmail);
+
   // Load notifications from localStorage
   useEffect(() => {
+    if (!userEmail) return;
+    
     const saved = localStorage.getItem(`notifications_${userEmail}`);
     if (saved) {
       const parsed = JSON.parse(saved);
@@ -31,41 +35,28 @@ const NotificationBell = ({ userId, userEmail }) => {
       id: Date.now(),
       title,
       message,
-      type, // 'success', 'warning', 'info', 'error'
+      type,
       reservationId,
       read: false,
       createdAt: new Date().toISOString()
     };
+    console.log('🔔 Adding notification:', newNotification);
     saveNotifications([newNotification, ...notifications]);
-  };
-
-  // Mark as read
-  const markAsRead = (id) => {
-    const updated = notifications.map(n => 
-      n.id === id ? { ...n, read: true } : n
-    );
-    saveNotifications(updated);
-  };
-
-  // Mark all as read
-  const markAllAsRead = () => {
-    const updated = notifications.map(n => ({ ...n, read: true }));
-    saveNotifications(updated);
-  };
-
-  // Clear all
-  const clearAll = () => {
-    saveNotifications([]);
-    setShowDropdown(false);
   };
 
   // Subscribe to reservation updates
   useEffect(() => {
-    if (!userEmail) return;
+    if (!userEmail) {
+      console.log('⚠️ No userEmail, skipping subscription');
+      return;
+    }
+
+    console.log('📡 Setting up real-time subscription for:', userEmail);
 
     const channel = supabase
       .channel(`reservations-${userEmail}`)
-      .on('postgres_changes',
+      .on(
+        'postgres_changes',
         {
           event: 'UPDATE',
           schema: 'public',
@@ -73,6 +64,7 @@ const NotificationBell = ({ userId, userEmail }) => {
           filter: `customer_email=eq.${userEmail}`
         },
         (payload) => {
+          console.log('🔔 Reservation update received:', payload);
           const reservation = payload.new;
           const oldStatus = payload.old.status;
           const newStatus = reservation.status;
@@ -106,19 +98,39 @@ const NotificationBell = ({ userId, userEmail }) => {
 
             addNotification(title, message, type, reservation.id);
             
-            // Also show toast
+            // Also try to show toast if available
             if (typeof toast !== 'undefined') {
-              toast[type === 'error' ? 'error' : 'success'](title, { duration: 5000 });
+              toast.success(title);
             }
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('📡 Subscription status:', status);
+      });
 
     return () => {
+      console.log('🔌 Unsubscribing from reservations');
       channel.unsubscribe();
     };
   }, [userEmail]);
+
+  const markAsRead = (id) => {
+    const updated = notifications.map(n => 
+      n.id === id ? { ...n, read: true } : n
+    );
+    saveNotifications(updated);
+  };
+
+  const markAllAsRead = () => {
+    const updated = notifications.map(n => ({ ...n, read: true }));
+    saveNotifications(updated);
+  };
+
+  const clearAll = () => {
+    saveNotifications([]);
+    setShowDropdown(false);
+  };
 
   const getIcon = (type) => {
     switch(type) {
