@@ -20,7 +20,7 @@ const ReservationsPanel = () => {
   const [reservations, setReservations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
-  const [showCancelled, setShowCancelled] = useState(false); // New toggle
+  const [showCancelled, setShowCancelled] = useState(false);
 
   const statusColors = {
     pending: "bg-yellow-500/20 text-yellow-500",
@@ -41,7 +41,6 @@ const ReservationsPanel = () => {
       const response = await api.get("/reservations/admin/all");
       if (response.data.success) {
         let data = response.data.data;
-        // Filter out cancelled if showCancelled is false
         if (!showCancelled) {
           data = data.filter((r) => r.status !== "cancelled");
         }
@@ -55,10 +54,9 @@ const ReservationsPanel = () => {
     }
   };
 
-  // Toggle cancelled visibility
   const toggleShowCancelled = () => {
     setShowCancelled(!showCancelled);
-    fetchReservations(); // Refresh with new filter
+    fetchReservations();
   };
 
   useEffect(() => {
@@ -72,19 +70,17 @@ const ReservationsPanel = () => {
         (payload) => {
           console.log("📅 New reservation:", payload.new);
           setReservations((prev) => [payload.new, ...prev]);
-          toast.success(
-            `🔔 New reservation from ${payload.new.customer_name}!`,
-          );
-        },
+          toast.success(`🔔 New reservation from ${payload.new.customer_name}!`);
+        }
       )
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "reservations" },
         (payload) => {
           setReservations((prev) =>
-            prev.map((res) => (res.id === payload.new.id ? payload.new : res)),
+            prev.map((res) => (res.id === payload.new.id ? payload.new : res))
           );
-        },
+        }
       )
       .subscribe();
 
@@ -105,13 +101,8 @@ const ReservationsPanel = () => {
     }
   };
 
-  // Permanently delete cancelled reservation
   const deleteReservation = async (id) => {
-    if (
-      window.confirm(
-        "Permanently delete this reservation? This cannot be undone.",
-      )
-    ) {
+    if (window.confirm("Permanently delete this reservation? This cannot be undone.")) {
       try {
         await api.delete(`/reservations/${id}`);
         toast.success("Reservation deleted");
@@ -147,76 +138,40 @@ const ReservationsPanel = () => {
         <div className="flex gap-2">
           <button
             onClick={toggleShowCancelled}
-            className={`text-sm px-3 py-1 rounded-full transition ${showCancelled ? "bg-red-500/20 text-red-400" : "bg-white/10 text-gray-400"}`}
+            className={`text-sm px-3 py-1 rounded-full transition ${
+              showCancelled ? "bg-red-500/20 text-red-400" : "bg-white/10 text-gray-400"
+            }`}
           >
             {showCancelled ? "Hide Cancelled" : "Show Cancelled"}
           </button>
-          <button
-            onClick={fetchReservations}
-            className="text-westend-gold hover:underline text-sm"
-          >
+          <button onClick={fetchReservations} className="text-westend-gold hover:underline text-sm">
             Refresh
-          </button>
-
-          <button
-            onClick={async () => {
-              console.log("Testing real-time...");
-
-              // Test if supabase is available
-              const { supabase } = await import("../config/supabaseClient");
-
-              const testChannel = supabase
-                .channel("test-channel")
-                .on(
-                  "postgres_changes",
-                  { event: "*", schema: "public", table: "reservations" },
-                  (payload) => {
-                    console.log("🔔 TEST: Real-time event received!", payload);
-                    alert("Real-time is WORKING! 🎉");
-                  },
-                )
-                .subscribe();
-
-              console.log(
-                "Test subscription created. Now go update a reservation status in the admin panel.",
-              );
-              alert(
-                "Test subscription active! Go update a reservation status now.",
-              );
-            }}
-            className="text-xs bg-purple-500 text-white px-2 py-1 rounded ml-2"
-          >
-            Test Realtime
           </button>
         </div>
       </div>
 
       {/* Filters */}
       <div className="flex gap-2 mb-6 overflow-x-auto pb-2 flex-wrap">
-        {["all", "pending", "confirmed", "completed", "cancelled"].map(
-          (status) => (
-            <button
-              key={status}
-              onClick={() => setFilter(status)}
-              className={`px-4 py-2 rounded-full capitalize transition-all ${
-                filter === status
-                  ? "bg-westend-gold text-westend-dark"
-                  : "bg-white/10 text-gray-300 hover:bg-white/20"
-              }`}
-            >
-              {status} ({getStatusCount(status)})
-            </button>
-          ),
-        )}
+        {["all", "pending", "confirmed", "completed", "cancelled"].map((status) => (
+          <button
+            key={status}
+            onClick={() => setFilter(status)}
+            className={`px-4 py-2 rounded-full capitalize transition-all ${
+              filter === status
+                ? "bg-westend-gold text-westend-dark"
+                : "bg-white/10 text-gray-300 hover:bg-white/20"
+            }`}
+          >
+            {status} ({getStatusCount(status)})
+          </button>
+        ))}
       </div>
 
       {/* Reservations List */}
       <div className="space-y-4 max-h-125 overflow-y-auto">
         <AnimatePresence>
           {filteredReservations.length === 0 ? (
-            <div className="text-center py-12 text-gray-400">
-              No reservations found
-            </div>
+            <div className="text-center py-12 text-gray-400">No reservations found</div>
           ) : (
             filteredReservations.map((res, index) => {
               const StatusIcon = statusIcons[res.status] || FiPending;
@@ -230,14 +185,18 @@ const ReservationsPanel = () => {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, x: -100 }}
                   transition={{ delay: index * 0.05 }}
-                  className={`bg-white/5 rounded-xl p-4 hover:bg-white/10 transition ${isCancelled ? "opacity-60" : ""}`}
+                  className={`bg-white/5 rounded-xl p-4 hover:bg-white/10 transition ${
+                    isCancelled ? "opacity-60" : ""
+                  }`}
                 >
                   <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                     {/* Left - Customer Info */}
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
                         <span
-                          className={`font-bold ${isCancelled ? "line-through text-gray-500" : "text-westend-gold"}`}
+                          className={`font-bold ${
+                            isCancelled ? "line-through text-gray-500" : "text-westend-gold"
+                          }`}
                         >
                           {res.customer_name}
                         </span>
@@ -256,8 +215,7 @@ const ReservationsPanel = () => {
                           <FiPhone size={12} /> {res.customer_phone}
                         </p>
                         <p className="text-gray-400 flex items-center gap-1">
-                          <FiCalendar size={12} />{" "}
-                          {reservationDate.toLocaleDateString()}
+                          <FiCalendar size={12} /> {reservationDate.toLocaleDateString()}
                         </p>
                         <p className="text-gray-400 flex items-center gap-1">
                           <FiClock size={12} />{" "}
@@ -272,9 +230,7 @@ const ReservationsPanel = () => {
                         </p>
                       </div>
                       {res.special_requests && (
-                        <p className="text-xs text-gray-500 mt-2">
-                          📝 {res.special_requests}
-                        </p>
+                        <p className="text-xs text-gray-500 mt-2">📝 {res.special_requests}</p>
                       )}
                     </div>
 
@@ -285,17 +241,13 @@ const ReservationsPanel = () => {
                           {res.status === "pending" && (
                             <>
                               <button
-                                onClick={() =>
-                                  updateStatus(res.id, "confirmed")
-                                }
+                                onClick={() => updateStatus(res.id, "confirmed")}
                                 className="px-3 py-1 bg-green-500 text-white rounded-lg text-sm hover:bg-green-600 transition"
                               >
                                 Confirm
                               </button>
                               <button
-                                onClick={() =>
-                                  updateStatus(res.id, "cancelled")
-                                }
+                                onClick={() => updateStatus(res.id, "cancelled")}
                                 className="px-3 py-1 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600 transition"
                               >
                                 Cancel
