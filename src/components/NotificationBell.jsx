@@ -69,6 +69,7 @@ const NotificationBell = ({ userId, userEmail }) => {
           filter: `customer_email=eq.${userEmail}`,
         },
         (payload) => {
+            console.log("🔔🔔🔔 REAL-TIME EVENT RECEIVED!", payload);
           const newStatus = payload.new.status;
           const oldStatus = payload.old.status;
 
@@ -101,6 +102,8 @@ const NotificationBell = ({ userId, userEmail }) => {
       channel.unsubscribe();
     };
   }, [userEmail]);
+
+  
 
   const markAsRead = (id) => {
     const updated = notifications.map((n) =>
