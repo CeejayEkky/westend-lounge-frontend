@@ -69,7 +69,7 @@ const NotificationBell = ({ userId, userEmail }) => {
           filter: `customer_email=eq.${userEmail}`,
         },
         (payload) => {
-            console.log("🔔🔔🔔 REAL-TIME EVENT RECEIVED!", payload);
+          console.log("🔔🔔🔔 REAL-TIME EVENT RECEIVED!", payload);
           const newStatus = payload.new.status;
           const oldStatus = payload.old.status;
 
@@ -103,7 +103,52 @@ const NotificationBell = ({ userId, userEmail }) => {
     };
   }, [userEmail]);
 
-  
+  // Add this useEffect right after your real-time subscription
+  // This will check for updates every 5 seconds as a backup
+  useEffect(() => {
+    if (!userEmail) return;
+
+    let lastStatus = localStorage.getItem(`reservation_status_${userEmail}`);
+
+    const interval = setInterval(async () => {
+      try {
+        const { data, error } = await supabase
+          .from("reservations")
+          .select("status, reservation_date")
+          .eq("customer_email", userEmail)
+          .order("created_at", { ascending: false })
+          .limit(1);
+
+        if (data && data[0] && data[0].status !== lastStatus) {
+          const newStatus = data[0].status;
+          localStorage.setItem(`reservation_status_${userEmail}`, newStatus);
+
+          let title = "",
+            message = "",
+            type = "info";
+          if (newStatus === "confirmed") {
+            title = "✅ Reservation Confirmed!";
+            message = `Your table is confirmed for ${new Date(data[0].reservation_date).toLocaleDateString()}`;
+            type = "success";
+          } else if (newStatus === "completed") {
+            title = "🎉 Reservation Completed";
+            message = "Thank you for dining with us!";
+            type = "success";
+          } else if (newStatus === "cancelled") {
+            title = "❌ Reservation Cancelled";
+            message = "Your reservation has been cancelled.";
+            type = "error";
+          }
+
+          if (title) addNotification(title, message, type);
+        }
+      } catch (err) {
+        console.log("Polling error:", err);
+      }
+    }, 5000); // Check every 5 seconds
+
+    return () => clearInterval(interval);
+  }, [userEmail]);
 
   const markAsRead = (id) => {
     const updated = notifications.map((n) =>
