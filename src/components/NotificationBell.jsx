@@ -54,99 +54,62 @@ const NotificationBell = ({ userId, userEmail }) => {
     else toast(title);
   };
 
-  // Subscribe to real-time updates
+  // ✅ POLLING FALLBACK (works even if real-time doesn't)
   useEffect(() => {
     if (!userEmail) return;
-
-    const channel = supabase
-      .channel("reservations-updates")
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "reservations",
-          filter: `customer_email=eq.${userEmail}`,
-        },
-        (payload) => {
-          console.log("🔔🔔🔔 REAL-TIME EVENT RECEIVED!", payload);
-          const newStatus = payload.new.status;
-          const oldStatus = payload.old.status;
-
-          if (oldStatus !== newStatus) {
-            let title = "",
-              message = "",
-              type = "info";
-
-            if (newStatus === "confirmed") {
+    
+    let lastStatus = localStorage.getItem(`reservation_status_${userEmail}`);
+    
+    const checkForUpdates = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('reservations')
+          .select('status, reservation_date')
+          .eq('customer_email', userEmail)
+          .order('created_at', { ascending: false })
+          .limit(1);
+        
+        if (error) {
+          console.log('Polling error:', error);
+          return;
+        }
+        
+        if (data && data[0]) {
+          const currentStatus = data[0].status;
+          
+          if (lastStatus && lastStatus !== currentStatus) {
+            console.log('🔄 Status changed from', lastStatus, 'to', currentStatus);
+            
+            let title = "", message = "", type = "info";
+            if (currentStatus === "confirmed") {
               title = "✅ Reservation Confirmed!";
-              message = `Your table is confirmed for ${new Date(payload.new.reservation_date).toLocaleDateString()}`;
+              message = `Your table is confirmed!`;
               type = "success";
-            } else if (newStatus === "completed") {
+            } else if (currentStatus === "completed") {
               title = "🎉 Reservation Completed";
               message = "Thank you for dining with us!";
               type = "success";
-            } else if (newStatus === "cancelled") {
+            } else if (currentStatus === "cancelled") {
               title = "❌ Reservation Cancelled";
               message = "Your reservation has been cancelled.";
               type = "error";
             }
-
+            
             if (title) addNotification(title, message, type);
           }
-        },
-      )
-      .subscribe();
-
-    return () => {
-      channel.unsubscribe();
-    };
-  }, [userEmail]);
-
-  // Add this useEffect right after your real-time subscription
-  // This will check for updates every 5 seconds as a backup
-  useEffect(() => {
-    if (!userEmail) return;
-
-    let lastStatus = localStorage.getItem(`reservation_status_${userEmail}`);
-
-    const interval = setInterval(async () => {
-      try {
-        const { data, error } = await supabase
-          .from("reservations")
-          .select("status, reservation_date")
-          .eq("customer_email", userEmail)
-          .order("created_at", { ascending: false })
-          .limit(1);
-
-        if (data && data[0] && data[0].status !== lastStatus) {
-          const newStatus = data[0].status;
-          localStorage.setItem(`reservation_status_${userEmail}`, newStatus);
-
-          let title = "",
-            message = "",
-            type = "info";
-          if (newStatus === "confirmed") {
-            title = "✅ Reservation Confirmed!";
-            message = `Your table is confirmed for ${new Date(data[0].reservation_date).toLocaleDateString()}`;
-            type = "success";
-          } else if (newStatus === "completed") {
-            title = "🎉 Reservation Completed";
-            message = "Thank you for dining with us!";
-            type = "success";
-          } else if (newStatus === "cancelled") {
-            title = "❌ Reservation Cancelled";
-            message = "Your reservation has been cancelled.";
-            type = "error";
-          }
-
-          if (title) addNotification(title, message, type);
+          
+          lastStatus = currentStatus;
+          localStorage.setItem(`reservation_status_${userEmail}`, currentStatus);
         }
       } catch (err) {
         console.log("Polling error:", err);
       }
-    }, 5000); // Check every 5 seconds
-
+    };
+    
+    // Check immediately and then every 5 seconds
+    checkForUpdates();
+    const interval = setInterval(checkForUpdates, 5000);
+    
     return () => clearInterval(interval);
   }, [userEmail]);
 
