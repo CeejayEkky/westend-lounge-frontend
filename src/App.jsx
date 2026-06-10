@@ -15,6 +15,7 @@ import PaymentCallback from "./pages/PaymentCallback";
 import { Toaster } from "react-hot-toast";
 import TrackOrderEntry from "./pages/TrackOrderEntry";
 import ReservationConfirmation from "./pages/ReservationConfirmation";
+import MyReservations from "./pages/MyReservations";
 
 function App() {
   const location = useLocation();
@@ -49,6 +50,7 @@ function App() {
             <Route path="/" element={<Home />} />
             <Route path="/login" element={<Login />} />
             <Route path="/menu" element={<Menu />} />
+            <Route path="/my-reservations" element={<MyReservations />} />
             <Route path="/reservation" element={<Reservation />} />
             <Route path="/checkout" element={<Checkout />} />
             <Route path="/track-order/:orderId" element={<OrderTracking />} />

@@ -73,6 +73,7 @@ const Navbar = () => {
     { name: 'Home', path: '/' },
     { name: 'Menu', path: '/menu' },
     { name: 'Reservations', path: '/reservation' },
+    { name: 'My Reservations', path: '/my-reservations' },
     { name: 'Track Order', path: '/track-order' },
   ]
 
