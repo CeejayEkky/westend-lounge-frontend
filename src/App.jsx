@@ -56,7 +56,7 @@ function App() {
             <Route path="/track-order/:orderId" element={<OrderTracking />} />
             <Route path="/track-order" element={<TrackOrderEntry />} />
             <Route path="/payment-callback" element={<PaymentCallback />} />
-            <Route path="/reservation-confirmation" element={<ReservationConfirmation />} />
+            <Route path="/reservation-confirmation/:id" element={<ReservationConfirmation />} />
             <Route
               path="/admin/*"
               element={
