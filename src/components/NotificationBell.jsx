@@ -8,29 +8,27 @@ import {
   FiAlertCircle,
 } from "react-icons/fi";
 import { supabase } from "../config/supabaseClient";
+import toast from "react-hot-toast";
 
 const NotificationBell = ({ userId, userEmail }) => {
-  console.log("🔔 NotificationBell MOUNTED with:", { userId, userEmail });
-
   const [notifications, setNotifications] = useState([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
 
-  console.log("🔔 NotificationBell rendering for:", userEmail);
-
-  // Load notifications from localStorage
+  // Load saved notifications
   useEffect(() => {
     if (!userEmail) return;
-
     const saved = localStorage.getItem(`notifications_${userEmail}`);
     if (saved) {
-      const parsed = JSON.parse(saved);
-      setNotifications(parsed);
-      setUnreadCount(parsed.filter((n) => !n.read).length);
+      try {
+        const parsed = JSON.parse(saved);
+        setNotifications(parsed);
+        setUnreadCount(parsed.filter((n) => !n.read).length);
+      } catch (e) {}
     }
   }, [userEmail]);
 
-  // Save notifications to localStorage
+  // Save notifications
   const saveNotifications = (newNotifications) => {
     localStorage.setItem(
       `notifications_${userEmail}`,
@@ -40,32 +38,28 @@ const NotificationBell = ({ userId, userEmail }) => {
     setUnreadCount(newNotifications.filter((n) => !n.read).length);
   };
 
-  // Add new notification
-  const addNotification = (title, message, type, reservationId) => {
+  // Add notification
+  const addNotification = (title, message, type) => {
     const newNotification = {
       id: Date.now(),
       title,
       message,
       type,
-      reservationId,
       read: false,
       createdAt: new Date().toISOString(),
     };
-    console.log("🔔 Adding notification:", newNotification);
     saveNotifications([newNotification, ...notifications]);
+    if (type === "success") toast.success(title);
+    else if (type === "error") toast.error(title);
+    else toast(title);
   };
 
-  // Subscribe to reservation updates
+  // Subscribe to real-time updates
   useEffect(() => {
-    if (!userEmail) {
-      console.log("⚠️ No userEmail, skipping subscription");
-      return;
-    }
-
-    console.log("📡 Setting up real-time subscription for:", userEmail);
+    if (!userEmail) return;
 
     const channel = supabase
-      .channel(`reservations-${userEmail}`)
+      .channel("reservations-updates")
       .on(
         "postgres_changes",
         {
@@ -75,55 +69,35 @@ const NotificationBell = ({ userId, userEmail }) => {
           filter: `customer_email=eq.${userEmail}`,
         },
         (payload) => {
-          console.log("🔔 Reservation update received:", payload);
-          const reservation = payload.new;
+          const newStatus = payload.new.status;
           const oldStatus = payload.old.status;
-          const newStatus = reservation.status;
 
           if (oldStatus !== newStatus) {
-            let title = "";
-            let message = "";
-            let type = "info";
+            let title = "",
+              message = "",
+              type = "info";
 
-            switch (newStatus) {
-              case "confirmed":
-                title = "✅ Reservation Confirmed!";
-                message = `Your table for ${new Date(reservation.reservation_date).toLocaleDateString()} at ${new Date(reservation.reservation_date).toLocaleTimeString()} has been confirmed.`;
-                type = "success";
-                break;
-              case "completed":
-                title = "🎉 Reservation Completed";
-                message =
-                  "Thank you for dining with us! We hope you enjoyed your experience.";
-                type = "success";
-                break;
-              case "cancelled":
-                title = "❌ Reservation Cancelled";
-                message =
-                  "Your reservation has been cancelled. If this was a mistake, please contact us.";
-                type = "error";
-                break;
-              default:
-                title = "📅 Reservation Updated";
-                message = `Your reservation status is now: ${newStatus}`;
-                type = "info";
+            if (newStatus === "confirmed") {
+              title = "✅ Reservation Confirmed!";
+              message = `Your table is confirmed for ${new Date(payload.new.reservation_date).toLocaleDateString()}`;
+              type = "success";
+            } else if (newStatus === "completed") {
+              title = "🎉 Reservation Completed";
+              message = "Thank you for dining with us!";
+              type = "success";
+            } else if (newStatus === "cancelled") {
+              title = "❌ Reservation Cancelled";
+              message = "Your reservation has been cancelled.";
+              type = "error";
             }
 
-            addNotification(title, message, type, reservation.id);
-
-            // Also try to show toast if available
-            if (typeof toast !== "undefined") {
-              toast.success(title);
-            }
+            if (title) addNotification(title, message, type);
           }
         },
       )
-      .subscribe((status) => {
-        console.log("📡 Subscription status:", status);
-      });
+      .subscribe();
 
     return () => {
-      console.log("🔌 Unsubscribing from reservations");
       channel.unsubscribe();
     };
   }, [userEmail]);
@@ -136,8 +110,7 @@ const NotificationBell = ({ userId, userEmail }) => {
   };
 
   const markAllAsRead = () => {
-    const updated = notifications.map((n) => ({ ...n, read: true }));
-    saveNotifications(updated);
+    saveNotifications(notifications.map((n) => ({ ...n, read: true })));
   };
 
   const clearAll = () => {
@@ -146,16 +119,11 @@ const NotificationBell = ({ userId, userEmail }) => {
   };
 
   const getIcon = (type) => {
-    switch (type) {
-      case "success":
-        return <FiCheckCircle className="text-green-500" />;
-      case "error":
-        return <FiXCircle className="text-red-500" />;
-      case "warning":
-        return <FiAlertCircle className="text-yellow-500" />;
-      default:
-        return <FiClock className="text-blue-500" />;
-    }
+    if (type === "success") return <FiCheckCircle className="text-green-500" />;
+    if (type === "error") return <FiXCircle className="text-red-500" />;
+    if (type === "warning")
+      return <FiAlertCircle className="text-yellow-500" />;
+    return <FiClock className="text-blue-500" />;
   };
 
   return (
@@ -182,26 +150,23 @@ const NotificationBell = ({ userId, userEmail }) => {
           >
             <div className="p-3 border-b border-white/10 flex justify-between items-center">
               <h3 className="font-bold">Notifications</h3>
-              <div className="flex gap-2">
-                {notifications.length > 0 && (
-                  <>
-                    <button
-                      onClick={markAllAsRead}
-                      className="text-xs text-westend-gold hover:underline"
-                    >
-                      Mark all read
-                    </button>
-                    <button
-                      onClick={clearAll}
-                      className="text-xs text-red-400 hover:underline"
-                    >
-                      Clear all
-                    </button>
-                  </>
-                )}
-              </div>
+              {notifications.length > 0 && (
+                <div className="flex gap-2">
+                  <button
+                    onClick={markAllAsRead}
+                    className="text-xs text-westend-gold hover:underline"
+                  >
+                    Mark all read
+                  </button>
+                  <button
+                    onClick={clearAll}
+                    className="text-xs text-red-400 hover:underline"
+                  >
+                    Clear all
+                  </button>
+                </div>
+              )}
             </div>
-
             <div className="max-h-96 overflow-y-auto">
               {notifications.length === 0 ? (
                 <div className="p-4 text-center text-gray-400">
@@ -212,7 +177,7 @@ const NotificationBell = ({ userId, userEmail }) => {
                   <div
                     key={notif.id}
                     onClick={() => markAsRead(notif.id)}
-                    className={`p-3 border-b border-white/10 cursor-pointer hover:bg-white/5 transition ${!notif.read ? "bg-white/5" : ""}`}
+                    className={`p-3 border-b border-white/10 cursor-pointer hover:bg-white/5 ${!notif.read ? "bg-white/5" : ""}`}
                   >
                     <div className="flex items-start gap-3">
                       <div className="mt-1">{getIcon(notif.type)}</div>
