@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { FiCheckCircle, FiCalendar, FiClock, FiUsers, FiMapPin, FiPhone, FiXCircle, FiAlertCircle } from 'react-icons/fi';
+import { FiCheckCircle, FiCalendar, FiClock, FiUsers, FiMapPin, FiPhone, FiXCircle, FiClock as FiPending, FiAlertCircle } from 'react-icons/fi';
 import { supabase } from '../config/supabaseClient';
 import toast from 'react-hot-toast';
 
@@ -12,23 +12,46 @@ const ReservationConfirmation = () => {
   const [currentStatus, setCurrentStatus] = useState('pending');
   const [loading, setLoading] = useState(true);
 
+  // Load reservation from state or fetch from DB
   useEffect(() => {
-    const reservationData = location.state?.reservation;
-    if (!reservationData) {
-      toast.error('No reservation data found');
-      navigate('/reservation');
-      return;
-    }
-    setReservation(reservationData);
-    setCurrentStatus(reservationData.status);
-    setLoading(false);
+    const loadReservation = async () => {
+      const reservationData = location.state?.reservation;
+      
+      if (!reservationData) {
+        toast.error('No reservation data found');
+        navigate('/reservation');
+        return;
+      }
+      
+      setReservation(reservationData);
+      
+      // ✅ Fetch the ACTUAL status from database (not the passed state)
+      try {
+        const { data, error } = await supabase
+          .from('reservations')
+          .select('*')
+          .eq('id', reservationData.id)
+          .single();
+        
+        if (data && !error) {
+          setReservation(data);
+          setCurrentStatus(data.status);
+        } else {
+          setCurrentStatus(reservationData.status);
+        }
+      } catch (err) {
+        setCurrentStatus(reservationData.status);
+      }
+      
+      setLoading(false);
+    };
+
+    loadReservation();
   }, [location, navigate]);
 
-  // ✅ Subscribe to real-time status updates for this reservation
+  // ✅ Subscribe to real-time status updates
   useEffect(() => {
     if (!reservation?.id) return;
-
-    console.log('📡 Subscribing to status updates for reservation:', reservation.id);
 
     const channel = supabase
       .channel(`reservation-status-${reservation.id}`)
@@ -41,44 +64,64 @@ const ReservationConfirmation = () => {
           filter: `id=eq.${reservation.id}`,
         },
         (payload) => {
-          console.log('🔔 Reservation status updated:', payload.new);
           const newStatus = payload.new.status;
           setCurrentStatus(newStatus);
+          setReservation(prev => ({ ...prev, ...payload.new }));
           
+          // Show toast for status changes
           if (newStatus === 'cancelled') {
             toast.error('❌ Your reservation has been cancelled');
           } else if (newStatus === 'confirmed') {
             toast.success('✅ Your reservation has been confirmed!');
           } else if (newStatus === 'completed') {
-            toast.success('🎉 Reservation completed! Thank you for dining with us!');
+            toast.success('🎉 Thank you for dining with us!');
           }
         }
       )
       .subscribe();
 
-    return () => {
-      channel.unsubscribe();
-    };
+    return () => channel.unsubscribe();
   }, [reservation?.id]);
 
-  // ✅ Also fetch latest status on page load
-  useEffect(() => {
-    if (!reservation?.id) return;
+  const getStatusConfig = (status) => {
+    switch(status) {
+      case 'confirmed':
+        return { 
+          icon: FiCheckCircle, 
+          color: 'text-green-500', 
+          bg: 'bg-green-500/20', 
+          title: 'Reservation Confirmed! ✅',
+          message: 'Your table has been confirmed. We look forward to serving you!'
+        };
+      case 'completed':
+        return { 
+          icon: FiCheckCircle, 
+          color: 'text-blue-500', 
+          bg: 'bg-blue-500/20', 
+          title: 'Reservation Completed 🎉',
+          message: 'Thank you for dining with us! We hope you enjoyed your experience.'
+        };
+      case 'cancelled':
+        return { 
+          icon: FiXCircle, 
+          color: 'text-red-500', 
+          bg: 'bg-red-500/20', 
+          title: 'Reservation Cancelled ❌',
+          message: 'This reservation has been cancelled. If this was a mistake, please contact us.'
+        };
+      default: // pending
+        return { 
+          icon: FiPending, 
+          color: 'text-yellow-500', 
+          bg: 'bg-yellow-500/20', 
+          title: 'Reservation Pending ⏳',
+          message: 'Your reservation request has been received. You will receive a confirmation email once approved.'
+        };
+    }
+  };
 
-    const fetchLatestStatus = async () => {
-      const { data, error } = await supabase
-        .from('reservations')
-        .select('status')
-        .eq('id', reservation.id)
-        .single();
-      
-      if (data && !error) {
-        setCurrentStatus(data.status);
-      }
-    };
-
-    fetchLatestStatus();
-  }, [reservation?.id]);
+  const statusConfig = getStatusConfig(currentStatus);
+  const StatusIcon = statusConfig.icon;
 
   if (loading) {
     return (
@@ -90,21 +133,6 @@ const ReservationConfirmation = () => {
 
   if (!reservation) return null;
 
-  // Status display configuration
-  const statusConfig = {
-    pending: { icon: FiClock, color: 'text-yellow-500', bg: 'bg-yellow-500/20', text: 'Pending Confirmation' },
-    confirmed: { icon: FiCheckCircle, color: 'text-green-500', bg: 'bg-green-500/20', text: 'Confirmed' },
-    completed: { icon: FiCheckCircle, color: 'text-blue-500', bg: 'bg-blue-500/20', text: 'Completed' },
-    cancelled: { icon: FiXCircle, color: 'text-red-500', bg: 'bg-red-500/20', text: 'Cancelled' }
-  };
-
-  const StatusIcon = statusConfig[currentStatus]?.icon || FiClock;
-  const statusColor = statusConfig[currentStatus]?.color || 'text-yellow-500';
-  const statusBg = statusConfig[currentStatus]?.bg || 'bg-yellow-500/20';
-  const statusText = statusConfig[currentStatus]?.text || 'Pending';
-
-  const isCancelled = currentStatus === 'cancelled';
-
   return (
     <div className="pt-32 pb-20 px-6 min-h-screen">
       <div className="container mx-auto max-w-2xl">
@@ -114,21 +142,11 @@ const ReservationConfirmation = () => {
           animate={{ opacity: 1, scale: 1 }}
           className="text-center mb-8"
         >
-          <div className={`inline-flex items-center justify-center w-20 h-20 rounded-full ${statusBg} mb-4`}>
-            <StatusIcon className={`text-5xl ${statusColor}`} />
+          <div className={`inline-flex items-center justify-center w-20 h-20 rounded-full ${statusConfig.bg} mb-4`}>
+            <StatusIcon className={`text-5xl ${statusConfig.color}`} />
           </div>
-          
-          {!isCancelled ? (
-            <>
-              <h1 className="text-3xl font-bold mb-2">Reservation {statusText}! 🎉</h1>
-              <p className="text-gray-400">Your table has been successfully reserved.</p>
-            </>
-          ) : (
-            <>
-              <h1 className="text-3xl font-bold mb-2 text-red-500">Reservation Cancelled ❌</h1>
-              <p className="text-gray-400">This reservation has been cancelled.</p>
-            </>
-          )}
+          <h1 className="text-3xl font-bold mb-2">{statusConfig.title}</h1>
+          <p className="text-gray-400">{statusConfig.message}</p>
         </motion.div>
 
         <motion.div
@@ -138,8 +156,8 @@ const ReservationConfirmation = () => {
         >
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-bold text-westend-gold">Reservation Details</h2>
-            <span className={`px-3 py-1 rounded-full text-sm font-semibold ${statusBg} ${statusColor}`}>
-              {statusText}
+            <span className={`px-3 py-1 rounded-full text-sm font-semibold ${statusConfig.bg} ${statusConfig.color}`}>
+              {currentStatus === 'pending' ? 'Pending Approval' : currentStatus}
             </span>
           </div>
           
@@ -204,18 +222,27 @@ const ReservationConfirmation = () => {
             </div>
           )}
 
-          {!isCancelled && (
-            <div className="mt-8 p-4 bg-westend-gold/10 rounded-xl text-center">
-              <p className="text-sm text-westend-gold">📌 Important</p>
+          {currentStatus === 'pending' && (
+            <div className="mt-8 p-4 bg-yellow-500/10 rounded-xl text-center">
+              <p className="text-sm text-yellow-500">⏳ Pending Confirmation</p>
+              <p className="text-xs text-gray-300 mt-1">
+                Your reservation is awaiting admin approval. You will receive a confirmation soon.
+              </p>
+            </div>
+          )}
+
+          {currentStatus === 'confirmed' && (
+            <div className="mt-8 p-4 bg-green-500/10 rounded-xl text-center">
+              <p className="text-sm text-green-500">📌 Important</p>
               <p className="text-xs text-gray-300 mt-1">
                 Please arrive 10 minutes before your reservation time. We'll hold your table for 15 minutes.
               </p>
             </div>
           )}
 
-          {isCancelled && (
+          {currentStatus === 'cancelled' && (
             <div className="mt-8 p-4 bg-red-500/10 rounded-xl text-center">
-              <p className="text-sm text-red-400">❌ Reservation Cancelled</p>
+              <p className="text-sm text-red-500">❌ Reservation Cancelled</p>
               <p className="text-xs text-gray-300 mt-1">
                 If you believe this is a mistake, please contact us at +234 803 722 7263.
               </p>

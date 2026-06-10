@@ -131,8 +131,8 @@ const Reservation = () => {
       const response = await api.post("/reservations", payload);
       
       if (response.data.success) {
-        toast.success("🎉 Table reserved!");
-        toast.success("📧 Confirmation email will arrive shortly", { duration: 3000 });
+        toast.success("🎉 Reservation submitted!", { duration: 5000 });
+        toast.success("📧 Waiting for admin approval", { duration: 9000 });
         
         // Navigate to confirmation page
         navigate("/reservation-confirmation", {
